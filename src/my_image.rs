@@ -26,27 +26,31 @@ impl MyRgbImage {
     }
 
     pub fn get_columns_left_to_right(&self, last_column: u32) -> Vec<Rgb<u8>> {
-        (0..last_column)
-            .flat_map(|column| self.get_column(column))
-            .collect::<Vec<_>>()
+        self.get_columns_interval(0, last_column)
     }
 
     pub fn get_columns_right_to_left(&self, last_column: u32) -> Vec<Rgb<u8>> {
-        (self.img.width()..last_column)
-            .flat_map(|column| self.get_column(column))
-            .collect::<Vec<_>>()
+        self.get_columns_interval(self.img.width(), last_column)
     }
 
     pub fn get_lines_top_down(&self, last_line: u32) -> Vec<Rgb<u8>> {
-        (0..last_line)
-            .flat_map(|line| self.get_line(line))
-            .collect::<Vec<_>>()
+        self.get_lines_interval(0,last_line)
     }
 
     pub fn get_lines_bottom_up(&self, last_line: u32) -> Vec<Rgb<u8>> {
-        (self.img.height()..last_line)
-            .flat_map(|line| self.get_line(line))
-            .collect::<Vec<_>>()
+        self.get_lines_interval(self.img.height(), last_line)
+    }
+
+    pub fn get_lines_interval(&self, first_line: u32, last_line: u32) -> Vec<Rgb<u8>> {
+        (first_line..last_line)
+        .flat_map(|line| self.get_line(line))
+        .collect::<Vec<_>>()
+    }
+
+    pub fn get_columns_interval(&self, first_column: u32, last_column: u32) -> Vec<Rgb<u8>> {
+        (first_column..last_column)
+        .flat_map(|column| self.get_column(column))
+        .collect::<Vec<_>>()
     }
 
     pub fn blend_segment(
@@ -105,7 +109,10 @@ pub enum RgbFilter {
     Yellow,
     Cyan,
     SorteColors,
-    SwapRgbColors,
+    SortedColorsRev,
+    SwapRgbColorsI,
+    SwapRgbColorsII,
+    SwapRgbColorsIII,
 }
 
 #[allow(dead_code)]
@@ -118,7 +125,10 @@ pub fn apply_filter(filter: RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
         RgbFilter::Cyan => RgbFilter::cyan(pixel),
         RgbFilter::Yellow => RgbFilter::yellow(pixel),
         RgbFilter::SorteColors => RgbFilter::sorted_colors(pixel),
-        RgbFilter::SwapRgbColors => RgbFilter::swap_rgb_colors(pixel),
+        RgbFilter::SortedColorsRev => RgbFilter::sorted_colors_rev(pixel),
+        RgbFilter::SwapRgbColorsI => RgbFilter::swap_rgb_colors_i(pixel),
+        RgbFilter::SwapRgbColorsII => RgbFilter::swap_rgb_colors_ii(pixel),
+        RgbFilter::SwapRgbColorsIII => RgbFilter::swap_rgb_colors_iii(pixel),
     }
 }
 
@@ -159,7 +169,15 @@ impl RgbFilter {
         Rgb([rgb[0], rgb[1], rgb[2]])
     }
 
-    pub fn swap_rgb_colors(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    pub fn swap_rgb_colors_i(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[2], rgb[0], rgb[1]])
+    }
+
+    pub fn swap_rgb_colors_ii(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+        Rgb([rgb[1], rgb[0], rgb[2]])
+    }
+
+    pub fn swap_rgb_colors_iii(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+        Rgb([rgb[0], rgb[2], rgb[1]])
     }
 }
