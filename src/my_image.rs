@@ -11,18 +11,32 @@ impl MyRgbImage {
         MyRgbImage { img: a_image }
     }
 
-    // todo!("check image bounds")
     pub fn get_line(&self, line: u32) -> Vec<Rgb<u8>> {
-        (0..self.img.height())
-            .map(|i| self.img[(line, i)])
-            .collect::<Vec<_>>()
+        if line < self.img.width() {
+            (0..self.img.height())
+                .map(|i| self.img[(line, i)])
+                .collect::<Vec<_>>()
+        } else {
+            panic!(
+                "index out of bounds, width is {}, got {}.",
+                self.img.width(),
+                line
+            )
+        }
     }
 
-    // todo!("check image bounds")
     pub fn get_column(&self, column: u32) -> Vec<Rgb<u8>> {
-        (0..self.img.width())
-            .map(|i| self.img[(i, column)])
-            .collect::<Vec<_>>()
+        if column < self.img.height() {
+            (0..self.img.width())
+                .map(|i| self.img[(i, column)])
+                .collect::<Vec<_>>()
+        } else {
+            panic!(
+                "index out of bounds, height is {}, got {}.",
+                self.img.height(),
+                column
+            )
+        }
     }
 
     pub fn get_columns_left_to_right(&self, last_column: u32) -> Vec<Rgb<u8>> {
@@ -30,46 +44,83 @@ impl MyRgbImage {
     }
 
     pub fn get_columns_right_to_left(&self, last_column: u32) -> Vec<Rgb<u8>> {
-        self.get_columns_interval(self.img.width(), last_column)
+        self.get_columns_interval(last_column, self.img.width())
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
     }
 
     pub fn get_lines_top_down(&self, last_line: u32) -> Vec<Rgb<u8>> {
-        self.get_lines_interval(0,last_line)
+        self.get_lines_interval(0, last_line)
     }
 
     pub fn get_lines_bottom_up(&self, last_line: u32) -> Vec<Rgb<u8>> {
-        self.get_lines_interval(self.img.height(), last_line)
+        self.get_lines_interval(last_line, self.img.width())
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
     }
 
     pub fn get_lines_interval(&self, first_line: u32, last_line: u32) -> Vec<Rgb<u8>> {
         (first_line..last_line)
-        .flat_map(|line| self.get_line(line))
-        .collect::<Vec<_>>()
+            .flat_map(|line| self.get_line(line))
+            .collect::<Vec<_>>()
     }
 
     pub fn get_columns_interval(&self, first_column: u32, last_column: u32) -> Vec<Rgb<u8>> {
         (first_column..last_column)
-        .flat_map(|column| self.get_column(column))
-        .collect::<Vec<_>>()
-    }
-
-    pub fn blend_segment(
-        &self,
-        mut segment: Vec<Rgb<u8>>,
-        blender: fn(&mut Rgb<u8>) -> Rgb<u8>,
-    ) -> Vec<Rgb<u8>> {
-        segment
-            .iter_mut()
-            .map(|pixel| blender(pixel))
+            .flat_map(|column| self.get_column(column))
             .collect::<Vec<_>>()
     }
 
-    pub fn blend_line(&mut self, line: u32, pixel_line: Vec<Rgb<u8>>) {
-        (0..self.img.height()).for_each(|y| self.img[(line, y)] = pixel_line[y as usize]);
+    pub fn blend_segment(&self, mut segment: Vec<Rgb<u8>>, blender: RgbFilter) -> Vec<Rgb<u8>> {
+        segment
+            .iter_mut()
+            .map(|pixel| apply_filter(&blender, pixel))
+            .collect::<Vec<_>>()
     }
 
-    pub fn blend_colum(&mut self, column: u32, pixel_column: Vec<Rgb<u8>>) {
-        (0..self.img.width()).for_each(|x| self.img[(x, column)] = pixel_column[x as usize]);
+    pub fn blend_line(&mut self, line: u32, mut pixel_line: Vec<Rgb<u8>>) {
+        if line < self.img.width() {
+            (0..self.img.height()).for_each(|y| self.img[(line, y)] = pixel_line.pop().unwrap());
+        } else {
+            panic!(
+                "index out of bounds, width is {}, got {}.",
+                self.img.width(),
+                line
+            )
+        }
+    }
+
+    pub fn blend_column(&mut self, column: u32, mut pixel_column: Vec<Rgb<u8>>) {
+        if column < self.img.height() {
+            (0..self.img.width()).for_each(|x| self.img[(x, column)] = pixel_column.pop().unwrap());
+        } else {
+            panic!(
+                "index out of bounds, height is {}, got {}.",
+                self.img.height(),
+                column
+            )
+        }
+    }
+
+    pub fn blend_columns_interval(
+        &mut self,
+        first_column: u32,
+        last_column: u32,
+        columns: Vec<Rgb<u8>>,
+    ) {
+        let mut pieces = columns
+            .chunks(self.img.width() as usize).rev()
+            .collect::<Vec<_>>();
+        (first_column..last_column)
+            .for_each(|column| self.blend_column(column, pieces.pop().unwrap().to_vec()));
+    }
+
+    pub fn blend_lines_interval(&mut self, first_line: u32, last_line: u32, lines: Vec<Rgb<u8>>) {
+        let mut pieces = lines.chunks(self.img.height() as usize).rev().collect::<Vec<_>>();
+        (first_line..last_line)
+            .for_each(|line| self.blend_line(line, pieces.pop().unwrap().to_vec()));
     }
 
     pub fn swap_lines(&mut self, line1: u32, line2: u32) {
@@ -82,17 +133,17 @@ impl MyRgbImage {
     pub fn swap_columns(&mut self, column1: u32, column2: u32) {
         let column_1 = self.get_column(column1);
         let column_2 = self.get_column(column2);
-        self.blend_colum(column1, column_2);
-        self.blend_colum(column2, column_1);
+        self.blend_column(column1, column_2);
+        self.blend_column(column2, column_1);
     }
 
     pub fn mess_everything(&mut self) {
-        (0..self.img.width() / 2)
-            .zip(self.img.width() / 2..self.img.width())
-            .for_each(|i| self.swap_lines(i.0, i.1));
-        (0..self.img.height() / 2)
-            .zip((self.img.height() / 2)..self.img.height())
-            .for_each(|i| self.swap_columns(i.0, i.1));
+        let a = self.get_columns_left_to_right(200);
+        let b = self.get_lines_bottom_up(300);
+        let c = self.blend_segment(a, RgbFilter::Cyan);
+        let d = self.blend_segment(b, RgbFilter::Red);
+        self.blend_columns_interval(100, 300, c);
+        self.blend_lines_interval(30, 106, d);
     }
 
     pub fn save_image(&self, path: &str) {
@@ -116,7 +167,7 @@ pub enum RgbFilter {
 }
 
 #[allow(dead_code)]
-pub fn apply_filter(filter: RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
+pub fn apply_filter(filter: &RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
     match filter {
         RgbFilter::Red => RgbFilter::red(pixel),
         RgbFilter::Green => RgbFilter::green(pixel),
