@@ -1,6 +1,9 @@
-extern crate image;
+use std::path::Path;
 
 use image::{Rgb, RgbImage};
+
+use crate::error::{Error, Result};
+
 pub struct MyRgbImage {
     img: RgbImage,
 }
@@ -11,32 +14,24 @@ impl MyRgbImage {
         MyRgbImage { img: a_image }
     }
 
-    pub fn get_line(&self, line: u32) -> Vec<Rgb<u8>> {
-        if line < self.img.width() {
-            (0..self.img.height())
-                .map(|i| self.img[(line, i)])
-                .collect::<Vec<_>>()
-        } else {
-            panic!(
-                "index out of bounds, width is {}, got {}.",
-                self.img.width(),
-                line
-            )
+    pub fn get_line(&self, line: u32) -> Result<Vec<Rgb<u8>>> {
+        if line >= self.img.width() {
+            return Err(Error::IndexOutOfBounds);
         }
+
+        Ok((0..self.img.height())
+            .map(|i| self.img[(line, i)])
+            .collect())
     }
 
-    pub fn get_column(&self, column: u32) -> Vec<Rgb<u8>> {
-        if column < self.img.height() {
-            (0..self.img.width())
-                .map(|i| self.img[(i, column)])
-                .collect::<Vec<_>>()
-        } else {
-            panic!(
-                "index out of bounds, height is {}, got {}.",
-                self.img.height(),
-                column
-            )
+    pub fn get_column(&self, column: u32) -> Result<Vec<Rgb<u8>>> {
+        if column >= self.img.height() {
+            return Err(Error::IndexOutOfBounds);
         }
+
+        Ok((0..self.img.width())
+            .map(|i| self.img[(i, column)])
+            .collect())
     }
 
     pub fn get_columns_left_to_right(&self, last_column: u32) -> Vec<Rgb<u8>> {
@@ -63,14 +58,18 @@ impl MyRgbImage {
 
     pub fn get_lines_interval(&self, first_line: u32, last_line: u32) -> Vec<Rgb<u8>> {
         (first_line..last_line)
-            .flat_map(|line| self.get_line(line))
-            .collect::<Vec<_>>()
+            .map(|idx| self.get_line(idx))
+            .filter_map(|res| res.ok())
+            .flat_map(|line| line)
+            .collect()
     }
 
     pub fn get_columns_interval(&self, first_column: u32, last_column: u32) -> Vec<Rgb<u8>> {
         (first_column..last_column)
-            .flat_map(|column| self.get_column(column))
-            .collect::<Vec<_>>()
+            .map(|idx| self.get_column(idx))
+            .filter_map(|line| line.ok())
+            .flat_map(|column| column)
+            .collect()
     }
 
     pub fn blend_segment(&self, mut segment: Vec<Rgb<u8>>, blender: RgbFilter) -> Vec<Rgb<u8>> {
@@ -111,30 +110,38 @@ impl MyRgbImage {
         columns: Vec<Rgb<u8>>,
     ) {
         let mut pieces = columns
-            .chunks(self.img.width() as usize).rev()
+            .chunks(self.img.width() as usize)
+            .rev()
             .collect::<Vec<_>>();
         (first_column..last_column)
             .for_each(|column| self.blend_column(column, pieces.pop().unwrap().to_vec()));
     }
 
     pub fn blend_lines_interval(&mut self, first_line: u32, last_line: u32, lines: Vec<Rgb<u8>>) {
-        let mut pieces = lines.chunks(self.img.height() as usize).rev().collect::<Vec<_>>();
+        let mut pieces = lines
+            .chunks(self.img.height() as usize)
+            .rev()
+            .collect::<Vec<_>>();
         (first_line..last_line)
             .for_each(|line| self.blend_line(line, pieces.pop().unwrap().to_vec()));
     }
 
-    pub fn swap_lines(&mut self, line1: u32, line2: u32) {
-        let line_1 = self.get_line(line1);
-        let line_2 = self.get_line(line2);
+    pub fn swap_lines(&mut self, line1: u32, line2: u32) -> Result<()> {
+        let line_1 = self.get_line(line1)?;
+        let line_2 = self.get_line(line2)?;
         self.blend_line(line1, line_2);
         self.blend_line(line2, line_1);
+
+        Ok(())
     }
 
-    pub fn swap_columns(&mut self, column1: u32, column2: u32) {
-        let column_1 = self.get_column(column1);
-        let column_2 = self.get_column(column2);
+    pub fn swap_columns(&mut self, column1: u32, column2: u32) -> Result<()> {
+        let column_1 = self.get_column(column1)?;
+        let column_2 = self.get_column(column2)?;
         self.blend_column(column1, column_2);
         self.blend_column(column2, column_1);
+
+        Ok(())
     }
 
     pub fn mess_everything(&mut self) {
@@ -143,15 +150,14 @@ impl MyRgbImage {
         let e = self.get_columns_interval(0, self.img.height());
         let c = self.blend_segment(a, RgbFilter::RgbNot);
         let d = self.blend_segment(b, RgbFilter::RgbShlOnce);
-        let g = self.blend_segment(e, RgbFilter::RgbXorMask(Rgb([20,40,50])));
-        let f = self.blend_segment(g, RgbFilter::RgbShlNth(1));
+        let f = self.blend_segment(e, RgbFilter::RgbShlOnce);
+        self.blend_columns_interval(0, self.img.height(), f);
         self.blend_columns_interval(100, 300, c);
         self.blend_lines_interval(30, 106, d);
-        self.blend_columns_interval(0, self.img.height(), f);
     }
 
-    pub fn save_image(&self, path: &str) {
-        self.img.save(path).expect("algo n deu certo.");
+    pub fn save_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        Ok(self.img.save(path)?)
     }
 }
 
@@ -171,8 +177,6 @@ pub enum RgbFilter {
     RgbNot,
     RgbShlOnce,
     RgbShrOnce,
-    RgbShlNth(u8),
-    RgbShrNth(u8),
     RgbAndMask(Rgb<u8>),
     RgbOrMask(Rgb<u8>),
     RgbXorMask(Rgb<u8>),
@@ -195,8 +199,6 @@ pub fn apply_filter(filter: &RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
         RgbFilter::RgbNot => RgbFilter::rgb_not(pixel),
         RgbFilter::RgbShlOnce => RgbFilter::rgb_shl_once(pixel),
         RgbFilter::RgbShrOnce => RgbFilter::rgb_shr_once(pixel),
-        RgbFilter::RgbShlNth(nth) => RgbFilter::rgb_shl_nth(pixel, nth),
-        RgbFilter::RgbShrNth(nth) => RgbFilter::rgb_shr_nth(pixel, nth),
         RgbFilter::RgbAndMask(mask) => RgbFilter::rgb_and_mask(pixel, mask),
         RgbFilter::RgbOrMask(mask) => RgbFilter::rgb_or_mask(pixel, mask),
         RgbFilter::RgbXorMask(mask) => RgbFilter::rgb_xor_mask(pixel, mask),
@@ -253,17 +255,17 @@ impl RgbFilter {
     }
 
     pub fn rgb_and_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
-        Rgb([rgb[0]&mask.0[0], rgb[1]&mask.0[1], rgb[2]&mask.0[2]])
+        Rgb([rgb[0] & mask.0[0], rgb[1] & mask.0[1], rgb[2] & mask.0[2]])
     }
 
     pub fn rgb_or_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
-        Rgb([rgb[0]|mask.0[0], rgb[1]|mask.0[1], rgb[2]|mask.0[2]])
+        Rgb([rgb[0] | mask.0[0], rgb[1] | mask.0[1], rgb[2] | mask.0[2]])
     }
 
     pub fn rgb_xor_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
-        Rgb([rgb[0]^mask.0[0], rgb[1]^mask.0[1], rgb[2]^mask.0[2]])
+        Rgb([rgb[0] ^ mask.0[0], rgb[1] ^ mask.0[1], rgb[2] ^ mask.0[2]])
     }
-    
+
     pub fn rgb_not(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([!rgb[0], !rgb[1], !rgb[2]])
     }
@@ -274,13 +276,5 @@ impl RgbFilter {
 
     pub fn rgb_shr_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] >> 1, rgb[1] >> 1, rgb[2] >> 1])
-    }
-
-    pub fn rgb_shl_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
-        Rgb([rgb[0] << times, rgb[1] << times, rgb[2] << times])
-    }
-
-    pub fn rgb_shr_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
-        Rgb([rgb[0] >> times, rgb[1] >> times, rgb[2] >> times])
     }
 }
