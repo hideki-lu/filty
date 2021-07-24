@@ -140,8 +140,11 @@ impl MyRgbImage {
     pub fn mess_everything(&mut self) {
         let a = self.get_columns_left_to_right(200);
         let b = self.get_lines_bottom_up(300);
-        let c = self.blend_segment(a, RgbFilter::Cyan);
-        let d = self.blend_segment(b, RgbFilter::Red);
+        let e = self.get_columns_interval(0, self.img.height());
+        let c = self.blend_segment(a, RgbFilter::RgbNot);
+        let d = self.blend_segment(b, RgbFilter::RgbShlOnce);
+        let f = self.blend_segment(e, RgbFilter::RgbShlOnce); 
+        self.blend_columns_interval(0, self.img.height(), f);
         self.blend_columns_interval(100, 300, c);
         self.blend_lines_interval(30, 106, d);
     }
@@ -164,6 +167,12 @@ pub enum RgbFilter {
     SwapRgbColorsI,
     SwapRgbColorsII,
     SwapRgbColorsIII,
+    RgbNot,
+    RgbShlOnce,
+    RgbShrOnce,
+    RgbAndMask(Rgb<u8>),
+    RgbOrMask(Rgb<u8>),
+    RgbXorMask(Rgb<u8>),
 }
 
 #[allow(dead_code)]
@@ -180,6 +189,12 @@ pub fn apply_filter(filter: &RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
         RgbFilter::SwapRgbColorsI => RgbFilter::swap_rgb_colors_i(pixel),
         RgbFilter::SwapRgbColorsII => RgbFilter::swap_rgb_colors_ii(pixel),
         RgbFilter::SwapRgbColorsIII => RgbFilter::swap_rgb_colors_iii(pixel),
+        RgbFilter::RgbNot => RgbFilter::rgb_not(pixel),
+        RgbFilter::RgbShlOnce => RgbFilter::rgb_shl_once(pixel),
+        RgbFilter::RgbShrOnce => RgbFilter::rgb_shr_once(pixel),
+        RgbFilter::RgbAndMask(mask) => RgbFilter::rgb_and_mask(pixel, mask),
+        RgbFilter::RgbOrMask(mask) => RgbFilter::rgb_or_mask(pixel, mask),
+        RgbFilter::RgbXorMask(mask) => RgbFilter::rgb_xor_mask(pixel, mask),
     }
 }
 
@@ -230,5 +245,29 @@ impl RgbFilter {
 
     pub fn swap_rgb_colors_iii(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0], rgb[2], rgb[1]])
+    }
+
+    pub fn rgb_and_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
+        Rgb([rgb[0]&mask.0[0], rgb[1]&mask.0[1], rgb[2]&mask.0[2]])
+    }
+
+    pub fn rgb_or_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
+        Rgb([rgb[0]|mask.0[0], rgb[1]|mask.0[1], rgb[2]|mask.0[2]])
+    }
+
+    pub fn rgb_xor_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
+        Rgb([rgb[0]^mask.0[0], rgb[1]^mask.0[1], rgb[2]^mask.0[2]])
+    }
+    
+    pub fn rgb_not(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+        Rgb([!rgb[0], !rgb[1], !rgb[2]])
+    }
+
+    pub fn rgb_shl_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+        Rgb([rgb[0] << 1, rgb[1] << 1, rgb[2] << 1])
+    }
+
+    pub fn rgb_shr_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+        Rgb([rgb[0] >> 1, rgb[1] >> 1, rgb[2] >> 1])
     }
 }
