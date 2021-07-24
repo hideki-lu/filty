@@ -143,10 +143,11 @@ impl MyRgbImage {
         let e = self.get_columns_interval(0, self.img.height());
         let c = self.blend_segment(a, RgbFilter::RgbNot);
         let d = self.blend_segment(b, RgbFilter::RgbShlOnce);
-        let f = self.blend_segment(e, RgbFilter::RgbShlOnce); 
-        self.blend_columns_interval(0, self.img.height(), f);
+        let g = self.blend_segment(e, RgbFilter::RgbXorMask(Rgb([20,40,50])));
+        let f = self.blend_segment(g, RgbFilter::RgbShlNth(1));
         self.blend_columns_interval(100, 300, c);
         self.blend_lines_interval(30, 106, d);
+        self.blend_columns_interval(0, self.img.height(), f);
     }
 
     pub fn save_image(&self, path: &str) {
@@ -170,6 +171,8 @@ pub enum RgbFilter {
     RgbNot,
     RgbShlOnce,
     RgbShrOnce,
+    RgbShlNth(u8),
+    RgbShrNth(u8),
     RgbAndMask(Rgb<u8>),
     RgbOrMask(Rgb<u8>),
     RgbXorMask(Rgb<u8>),
@@ -192,6 +195,8 @@ pub fn apply_filter(filter: &RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
         RgbFilter::RgbNot => RgbFilter::rgb_not(pixel),
         RgbFilter::RgbShlOnce => RgbFilter::rgb_shl_once(pixel),
         RgbFilter::RgbShrOnce => RgbFilter::rgb_shr_once(pixel),
+        RgbFilter::RgbShlNth(nth) => RgbFilter::rgb_shl_nth(pixel, nth),
+        RgbFilter::RgbShrNth(nth) => RgbFilter::rgb_shr_nth(pixel, nth),
         RgbFilter::RgbAndMask(mask) => RgbFilter::rgb_and_mask(pixel, mask),
         RgbFilter::RgbOrMask(mask) => RgbFilter::rgb_or_mask(pixel, mask),
         RgbFilter::RgbXorMask(mask) => RgbFilter::rgb_xor_mask(pixel, mask),
@@ -269,5 +274,13 @@ impl RgbFilter {
 
     pub fn rgb_shr_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] >> 1, rgb[1] >> 1, rgb[2] >> 1])
+    }
+
+    pub fn rgb_shl_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
+        Rgb([rgb[0] << times, rgb[1] << times, rgb[2] << times])
+    }
+
+    pub fn rgb_shr_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
+        Rgb([rgb[0] >> times, rgb[1] >> times, rgb[2] >> times])
     }
 }
