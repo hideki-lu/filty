@@ -3,7 +3,7 @@ use image::error::ImageError;
 #[derive(Debug)]
 pub enum Error {
     IndexOutOfBounds,
-    ImageError(ImageError)
+    ImageError(ImageError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -42,7 +42,7 @@ impl MyRgbImage {
         self.get_columns_interval(last_column, self.img.width())
             .into_iter()
             .rev()
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn get_lines_top_down(&self, last_line: u32) -> Vec<Rgb<u8>> {
@@ -53,22 +53,22 @@ impl MyRgbImage {
         self.get_lines_interval(last_line, self.img.width())
             .into_iter()
             .rev()
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn get_lines_interval(&self, first_line: u32, last_line: u32) -> Vec<Rgb<u8>> {
         (first_line..last_line)
-            .map(|idx| self.get_line(idx))
-            .filter_map(|res| res.ok())
-            .flat_map(|line| line)
+            .map(|index| self.get_line(index))
+            .filter_map(|line| line.ok())
+            .flatten()
             .collect()
     }
 
     pub fn get_columns_interval(&self, first_column: u32, last_column: u32) -> Vec<Rgb<u8>> {
         (first_column..last_column)
-            .map(|idx| self.get_column(idx))
-            .filter_map(|line| line.ok())
-            .flat_map(|column| column)
+            .map(|index| self.get_column(index))
+            .filter_map(|column| column.ok())
+            .flatten()
             .collect()
     }
 
@@ -76,7 +76,7 @@ impl MyRgbImage {
         segment
             .iter_mut()
             .map(|pixel| apply_filter(&blender, pixel))
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn blend_line(&mut self, line: u32, mut pixel_line: Vec<Rgb<u8>>) {
@@ -145,15 +145,19 @@ impl MyRgbImage {
     }
 
     pub fn mess_everything(&mut self) {
-        let a = self.get_columns_left_to_right(200);
-        let b = self.get_lines_bottom_up(300);
-        let e = self.get_columns_interval(0, self.img.height());
-        let c = self.blend_segment(a, RgbFilter::RgbNot);
-        let d = self.blend_segment(b, RgbFilter::RgbShlOnce);
-        let f = self.blend_segment(e, RgbFilter::RgbShlOnce);
-        self.blend_columns_interval(0, self.img.height(), f);
-        self.blend_columns_interval(100, 300, c);
-        self.blend_lines_interval(30, 106, d);
+        (0..self.img.height())
+            .filter(|i| *i % 4 == 0)
+            .zip((0..self.img.height()).filter(|i| *i % 4 == 3))
+            .into_iter()
+            .for_each(|(odd, even)| self.swap_columns(odd, even).expect("oh lascou"));
+        let a = self
+            .get_lines_top_down(self.img.width())
+            .into_iter()
+            .rev()
+            .collect();
+        let b = self.blend_segment(a, RgbFilter::RgbOrMask(Rgb([40, 10, 200])));
+        let c = self.blend_segment(b, RgbFilter::RgbAndMask(Rgb([0, 200, 250])));
+        self.blend_lines_interval(0, self.img.width(), c);
     }
 
     pub fn save_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -177,6 +181,8 @@ pub enum RgbFilter {
     RgbNot,
     RgbShlOnce,
     RgbShrOnce,
+    RgbShlNth(u8),
+    RgbShrNth(u8),
     RgbAndMask(Rgb<u8>),
     RgbOrMask(Rgb<u8>),
     RgbXorMask(Rgb<u8>),
@@ -199,6 +205,8 @@ pub fn apply_filter(filter: &RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
         RgbFilter::RgbNot => RgbFilter::rgb_not(pixel),
         RgbFilter::RgbShlOnce => RgbFilter::rgb_shl_once(pixel),
         RgbFilter::RgbShrOnce => RgbFilter::rgb_shr_once(pixel),
+        RgbFilter::RgbShlNth(times) => RgbFilter::rgb_shl_nth(pixel, times),
+        RgbFilter::RgbShrNth(times) => RgbFilter::rgb_shr_nth(pixel, times),
         RgbFilter::RgbAndMask(mask) => RgbFilter::rgb_and_mask(pixel, mask),
         RgbFilter::RgbOrMask(mask) => RgbFilter::rgb_or_mask(pixel, mask),
         RgbFilter::RgbXorMask(mask) => RgbFilter::rgb_xor_mask(pixel, mask),
@@ -276,5 +284,13 @@ impl RgbFilter {
 
     pub fn rgb_shr_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] >> 1, rgb[1] >> 1, rgb[2] >> 1])
+    }
+
+    pub fn rgb_shl_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
+        Rgb([rgb[0] << times, rgb[1] << times, rgb[2] << times])
+    }
+
+    pub fn rgb_shr_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
+        Rgb([rgb[0] >> times, rgb[1] >> times, rgb[2] >> times])
     }
 }
