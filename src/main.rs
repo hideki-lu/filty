@@ -13,6 +13,6 @@ pub fn main() -> crate::error::Result<()> {
     my_image.mess_everything();
     my_image.save_image("./new_neko.jpg")?;
     println!("saca só essa execução: {:?}", tempo.elapsed());
-
+    
     Ok(())
 }

@@ -1,8 +1,6 @@
-use std::path::Path;
-
-use image::{Rgb, RgbImage};
-
 use crate::error::{Error, Result};
+use image::{Rgb, RgbImage};
+use std::path::Path;
 
 pub struct MyRgbImage {
     img: RgbImage,
@@ -20,7 +18,7 @@ impl MyRgbImage {
         }
 
         Ok((0..self.img.height())
-            .map(|i| self.img[(line, i)])
+            .map(|i| self.img[(i, line)])
             .collect())
     }
 
@@ -30,7 +28,7 @@ impl MyRgbImage {
         }
 
         Ok((0..self.img.width())
-            .map(|i| self.img[(i, column)])
+            .map(|i| self.img[(column, i)])
             .collect())
     }
 
@@ -57,7 +55,7 @@ impl MyRgbImage {
     }
 
     pub fn get_lines_interval(&self, first_line: u32, last_line: u32) -> Vec<Rgb<u8>> {
-        (first_line..last_line)
+        (first_line..=last_line)
             .map(|index| self.get_line(index))
             .filter_map(|line| line.ok())
             .flatten()
@@ -65,7 +63,7 @@ impl MyRgbImage {
     }
 
     pub fn get_columns_interval(&self, first_column: u32, last_column: u32) -> Vec<Rgb<u8>> {
-        (first_column..last_column)
+        (first_column..=last_column)
             .map(|index| self.get_column(index))
             .filter_map(|column| column.ok())
             .flatten()
@@ -145,13 +143,13 @@ impl MyRgbImage {
     }
 
     pub fn mess_everything(&mut self) {
-        (0..self.img.height())
+        (0..self.img.width())
             .filter(|i| *i % 4 == 0)
-            .zip((0..self.img.height()).filter(|i| *i % 4 == 3))
+            .zip((0..self.img.width()).filter(|i| *i % 4 == 3))
             .into_iter()
             .for_each(|(odd, even)| self.swap_columns(odd, even).expect("oh lascou"));
         let a = self
-            .get_lines_top_down(self.img.width())
+            .get_lines_top_down(self.img.height())
             .into_iter()
             .rev()
             .collect();
