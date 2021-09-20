@@ -17,7 +17,7 @@ impl MyRgbImage {
             return Err(Error::IndexOutOfBounds);
         }
 
-        Ok((0..self.img.height())
+        Ok((0..self.img.width())
             .map(|i| self.img[(i, line)])
             .collect())
     }
@@ -27,7 +27,7 @@ impl MyRgbImage {
             return Err(Error::IndexOutOfBounds);
         }
 
-        Ok((0..self.img.width())
+        Ok((0..self.img.height())
             .map(|i| self.img[(column, i)])
             .collect())
     }
@@ -213,82 +213,82 @@ pub fn apply_filter(filter: &RgbFilter, pixel: &mut Rgb<u8>) -> Rgb<u8> {
 
 #[allow(dead_code)]
 impl RgbFilter {
-    pub fn blue(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn blue(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0], rgb[1], 255])
     }
 
-    pub fn red(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn red(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([255, rgb[1], rgb[2]])
     }
 
-    pub fn green(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn green(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0], 255, rgb[2]])
     }
 
-    pub fn magenta(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn magenta(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([255, rgb[1], 255])
     }
 
-    pub fn cyan(rgb: &Rgb<u8>) -> Rgb<u8> {
+    fn cyan(rgb: &Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0], 255, 255])
     }
 
-    pub fn yellow(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn yellow(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([255, 255, rgb[2]])
     }
 
-    pub fn sorted_colors(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn sorted_colors(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         rgb.0.sort_unstable();
         Rgb([rgb[0], rgb[1], rgb[2]])
     }
 
-    pub fn sorted_colors_rev(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn sorted_colors_rev(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         rgb.0.sort_unstable();
         rgb.0.reverse();
         Rgb([rgb[0], rgb[1], rgb[2]])
     }
 
-    pub fn swap_rgb_colors_i(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn swap_rgb_colors_i(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[2], rgb[0], rgb[1]])
     }
 
-    pub fn swap_rgb_colors_ii(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn swap_rgb_colors_ii(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[1], rgb[0], rgb[2]])
     }
 
-    pub fn swap_rgb_colors_iii(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn swap_rgb_colors_iii(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0], rgb[2], rgb[1]])
     }
 
-    pub fn rgb_and_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
+    fn rgb_and_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] & mask.0[0], rgb[1] & mask.0[1], rgb[2] & mask.0[2]])
     }
 
-    pub fn rgb_or_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
+    fn rgb_or_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] | mask.0[0], rgb[1] | mask.0[1], rgb[2] | mask.0[2]])
     }
 
-    pub fn rgb_xor_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
+    fn rgb_xor_mask(rgb: &mut Rgb<u8>, mask: &Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] ^ mask.0[0], rgb[1] ^ mask.0[1], rgb[2] ^ mask.0[2]])
     }
 
-    pub fn rgb_not(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn rgb_not(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([!rgb[0], !rgb[1], !rgb[2]])
     }
 
-    pub fn rgb_shl_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn rgb_shl_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] << 1, rgb[1] << 1, rgb[2] << 1])
     }
 
-    pub fn rgb_shr_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
+    fn rgb_shr_once(rgb: &mut Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0] >> 1, rgb[1] >> 1, rgb[2] >> 1])
     }
 
-    pub fn rgb_shl_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
+    fn rgb_shl_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
         Rgb([rgb[0] << times, rgb[1] << times, rgb[2] << times])
     }
 
-    pub fn rgb_shr_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
+    fn rgb_shr_nth(rgb: &mut Rgb<u8>, times: &u8) -> Rgb<u8> {
         Rgb([rgb[0] >> times, rgb[1] >> times, rgb[2] >> times])
     }
 }
