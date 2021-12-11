@@ -117,15 +117,32 @@ mod test {
         )
     }
 
-        #[test]
+    #[test]
     fn test_getting_lines_full_interval() {
-        debug_assert_eq!(create_sample(5, 4).get_lines_interval(0,3), 
-        &[
-            Rgb([00u8,00u8,00u8]), Rgb([01u8,01u8,01u8]), Rgb([02u8,02u8,02u8]), Rgb([03u8,03u8,03u8]), Rgb([04u8,04u8,04u8]),
-            Rgb([05u8,05u8,05u8]), Rgb([06u8,06u8,06u8]), Rgb([07u8,07u8,07u8]), Rgb([08u8,08u8,08u8]), Rgb([09u8,09u8,09u8]),
-            Rgb([10u8,10u8,10u8]), Rgb([11u8,11u8,11u8]), Rgb([12u8,12u8,12u8]), Rgb([13u8,13u8,13u8]), Rgb([14u8,14u8,14u8]),
-            Rgb([15u8,15u8,15u8]), Rgb([16u8,16u8,16u8]), Rgb([17u8,17u8,17u8]), Rgb([18u8,18u8,18u8]), Rgb([19u8,19u8,19u8]),
-         ]
-    )
+        debug_assert_eq!(
+            create_sample(5, 4).get_lines_interval(0, 3),
+            &[
+                Rgb([00u8, 00u8, 00u8]),
+                Rgb([01u8, 01u8, 01u8]),
+                Rgb([02u8, 02u8, 02u8]),
+                Rgb([03u8, 03u8, 03u8]),
+                Rgb([04u8, 04u8, 04u8]),
+                Rgb([05u8, 05u8, 05u8]),
+                Rgb([06u8, 06u8, 06u8]),
+                Rgb([07u8, 07u8, 07u8]),
+                Rgb([08u8, 08u8, 08u8]),
+                Rgb([09u8, 09u8, 09u8]),
+                Rgb([10u8, 10u8, 10u8]),
+                Rgb([11u8, 11u8, 11u8]),
+                Rgb([12u8, 12u8, 12u8]),
+                Rgb([13u8, 13u8, 13u8]),
+                Rgb([14u8, 14u8, 14u8]),
+                Rgb([15u8, 15u8, 15u8]),
+                Rgb([16u8, 16u8, 16u8]),
+                Rgb([17u8, 17u8, 17u8]),
+                Rgb([18u8, 18u8, 18u8]),
+                Rgb([19u8, 19u8, 19u8]),
+            ]
+        )
     }
 }
