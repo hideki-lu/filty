@@ -1,10 +1,11 @@
-use crate::error::{Error, Result};
+use crate::error::Result;
 use image::{Rgb, RgbImage};
 use std::{ops::Range, path::Path};
-
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
-enum Operation {
-    Blend(RgbFilter),
+pub enum PairSelection {
+    Lines,
+    Columns,
 }
 enum PixelSelection {
     All,
@@ -13,71 +14,73 @@ enum PixelSelection {
     LinesRange(Range<u32>),
     ColumnsRange(Range<u32>),
     Function(fn(u32, u32) -> (u32, u32)),
+    Pair(u32, u32, PairSelection),
 }
 pub struct MyRgbImage {
-    operations: Vec<Operation>,
     selection: PixelSelection,
     img: RgbImage,
 }
 
-fn apply_all(image: &mut RgbImage, operation: Operation) {
-    match operation {
-        Operation::Blend(rgb_filter) => {
-            image
-                .pixels_mut()
-                .for_each(|pixel| *pixel = apply_filter(rgb_filter, *pixel));
-        }
-    }
+fn apply_all(image: &mut RgbImage, rgb_filter: RgbFilter) {
+    image
+        .pixels_mut()
+        .for_each(|pixel| *pixel = apply_filter(rgb_filter, *pixel));
 }
 
-fn apply_line(image: &mut RgbImage, line: u32, operation: Operation) {
-    match operation {
-        Operation::Blend(rgb_filter) => (0..image.width())
-            .for_each(|i| image[(i, line)] = apply_filter(rgb_filter, image[(i, line)])),
-    }
+fn apply_line(image: &mut RgbImage, line: u32, rgb_filter: RgbFilter) {
+    (0..image.width()).for_each(|i| image[(i, line)] = apply_filter(rgb_filter, image[(i, line)]))
 }
 
-fn apply_column(image: &mut RgbImage, column: u32, operation: Operation) {
-    match operation {
-        Operation::Blend(rgb_filter) => (0..image.height())
-            .for_each(|i| image[(column, i)] = apply_filter(rgb_filter, image[(column, i)])),
-    }
+fn apply_column(image: &mut RgbImage, column: u32, rgb_filter: RgbFilter) {
+    (0..image.height())
+        .for_each(|i| image[(column, i)] = apply_filter(rgb_filter, image[(column, i)]))
 }
 
-fn apply_columns(image: &mut RgbImage, columns: Range<u32>, operation: Operation) {
-    match operation {
-        Operation::Blend(rgb_filter) => columns.for_each(|column| {
-            (0..image.height())
-                .for_each(|i| image[(column, i)] = apply_filter(rgb_filter, image[(column, i)]))
-        }),
-    }
+fn apply_columns(image: &mut RgbImage, columns: Range<u32>, rgb_filter: RgbFilter) {
+    columns.for_each(|column| {
+        (0..image.height())
+            .for_each(|i| image[(column, i)] = apply_filter(rgb_filter, image[(column, i)]))
+    })
 }
 
-fn apply_lines(image: &mut RgbImage, lines: Range<u32>, operation: Operation) {
-    match operation {
-        Operation::Blend(rgb_filter) => lines.for_each(|line| {
-            (0..image.width())
-                .for_each(|i| image[(i, line)] = apply_filter(rgb_filter, image[(i, line)]))
-        }),
-    }
+fn apply_lines(image: &mut RgbImage, lines: Range<u32>, rgb_filter: RgbFilter) {
+    lines.for_each(|line| {
+        (0..image.width())
+            .for_each(|i| image[(i, line)] = apply_filter(rgb_filter, image[(i, line)]))
+    })
 }
 
 fn apply_function(
     image: &mut RgbImage,
     function: fn(u32, u32) -> (u32, u32),
-    operation: Operation,
+    rgb_filter: RgbFilter,
 ) {
-    match operation {
-        Operation::Blend(rgb_filter) => {
-            let (width, height) = (image.width(), image.height());
-            image
-                .enumerate_pixels_mut()
-                .filter(|pixel| {
-                    let (new_x, new_y) = function(pixel.0, pixel.1);
-                    new_x < width && new_y < height
-                })
-                .for_each(|i| *i.2 = apply_filter(rgb_filter, *i.2));
-        }
+    let (width, height) = (image.width(), image.height());
+    image
+        .enumerate_pixels_mut()
+        .filter(|pixel| {
+            let (new_x, new_y) = function(pixel.0, pixel.1);
+            new_x < width && new_y < height
+        })
+        .for_each(|i| *i.2 = apply_filter(rgb_filter, *i.2));
+}
+
+fn apply_pair(
+    image: &mut RgbImage,
+    one_segment: u32,
+    other_segment: u32,
+    pair_selection: PairSelection,
+    rgb_filter: RgbFilter,
+) {
+    match pair_selection {
+        PairSelection::Columns => (0..image.height()).for_each(|i| {
+            image[(i, one_segment)] = apply_filter(rgb_filter, image[(i, one_segment)]);
+            image[(i, other_segment)] = apply_filter(rgb_filter, image[(i, other_segment)]);
+        }),
+        PairSelection::Lines => (0..image.width()).for_each(|i| {
+            image[(one_segment, i)] = apply_filter(rgb_filter, image[(one_segment, i)]);
+            image[(other_segment, i)] = apply_filter(rgb_filter, image[(other_segment, i)]);
+        }),
     }
 }
 
@@ -85,7 +88,6 @@ fn apply_function(
 impl MyRgbImage {
     pub fn new(a_image: RgbImage) -> Self {
         MyRgbImage {
-            operations: Vec::new(),
             selection: PixelSelection::All,
             img: a_image,
         }
@@ -111,182 +113,78 @@ impl MyRgbImage {
         self
     }
 
-    pub fn blend(mut self, rgb_filter: RgbFilter) -> Self {
-        self.operations.push(Operation::Blend(rgb_filter));
-        self
-    }
-
     pub fn for_function(mut self, function: fn(u32, u32) -> (u32, u32)) -> Self {
         self.selection = PixelSelection::Function(function);
         self
     }
 
-    // I want to make a sawp lines and columns function... 
-    // but I guess it won't work right for the tagging in the Operation enum
-    // and it wouldn't make sense either for the PixelSelection enum, 
-    // it wouldn't be pleasent to use 
-    // so... I'll just discart the lazy consumption of the blend operation
-    pub fn consume(mut self) -> Self {
-        self.operations
-            .into_iter()
-            .for_each(|op| match &self.selection {
-                PixelSelection::All => apply_all(&mut self.img, op),
-                PixelSelection::Line(line) => apply_line(&mut self.img, *line, op),
-                PixelSelection::Column(column) => apply_column(&mut self.img, *column, op),
-                PixelSelection::LinesRange(lines) => {
-                    apply_lines(&mut self.img, lines.to_owned(), op)
-                }
-                PixelSelection::ColumnsRange(columns) => {
-                    apply_columns(&mut self.img, columns.to_owned(), op)
-                }
-                PixelSelection::Function(function) => apply_function(&mut self.img, *function, op),
-            });
-        self.operations = vec![];
+    pub fn for_pair(
+        mut self,
+        one_segment: u32,
+        other_segment: u32,
+        pair_selection: PairSelection,
+    ) -> Self {
+        self.selection = PixelSelection::Pair(one_segment, other_segment, pair_selection);
         self
     }
 
-    pub fn get_line(&self, line: u32) -> Result<Vec<Rgb<u8>>> {
-        if line >= self.img.width() {
-            return Err(Error::IndexOutOfBounds);
-        }
-
-        Ok((0..self.img.width()).map(|i| self.img[(i, line)]).collect())
-    }
-
-    pub fn get_column(&self, column: u32) -> Result<Vec<Rgb<u8>>> {
-        if column >= self.img.height() {
-            return Err(Error::IndexOutOfBounds);
-        }
-
-        Ok((0..self.img.height())
-            .map(|i| self.img[(column, i)])
-            .collect())
-    }
-
-    pub fn get_columns_left_to_right(&self, last_column: u32) -> Vec<Rgb<u8>> {
-        self.get_columns_interval(0, last_column)
-    }
-
-    pub fn get_columns_right_to_left(&self, last_column: u32) -> Vec<Rgb<u8>> {
-        self.get_columns_interval(last_column, self.img.width())
-            .into_iter()
-            .rev()
-            .collect()
-    }
-
-    pub fn get_lines_top_down(&self, last_line: u32) -> Vec<Rgb<u8>> {
-        self.get_lines_interval(0, last_line)
-    }
-
-    pub fn get_lines_bottom_up(&self, last_line: u32) -> Vec<Rgb<u8>> {
-        self.get_lines_interval(last_line, self.img.width())
-            .into_iter()
-            .rev()
-            .collect()
-    }
-
-    pub fn get_lines_interval(&self, first_line: u32, last_line: u32) -> Vec<Rgb<u8>> {
-        (first_line..=last_line)
-            .map(|index| self.get_line(index))
-            .filter_map(|line| line.ok())
-            .flatten()
-            .collect()
-    }
-
-    pub fn get_columns_interval(&self, first_column: u32, last_column: u32) -> Vec<Rgb<u8>> {
-        (first_column..=last_column)
-            .map(|index| self.get_column(index))
-            .filter_map(|column| column.ok())
-            .flatten()
-            .collect()
-    }
-
-    pub fn blend_segment(&self, mut segment: Vec<Rgb<u8>>, blender: RgbFilter) -> Vec<Rgb<u8>> {
-        segment
-            .iter_mut()
-            .map(|pixel| apply_filter(blender, *pixel))
-            .collect()
-    }
-
-    pub fn blend_line(&mut self, line: u32, mut pixel_line: Vec<Rgb<u8>>) {
-        if line < self.img.width() {
-            (0..self.img.height()).for_each(|y| self.img[(line, y)] = pixel_line.pop().unwrap());
-        } else {
-            panic!(
-                "index out of bounds, width is {}, got {}.",
-                self.img.width(),
-                line
-            )
+    pub fn swap_pair(self) -> Self {
+        match self.selection {
+            PixelSelection::Pair(one_segment, other_segment, pair_selection) => {
+                match pair_selection {
+                    PairSelection::Lines => self.swap_lines(one_segment, other_segment),
+                    PairSelection::Columns => self.swap_columns(one_segment, other_segment),
+                }
+            }
+            _ => self,
         }
     }
 
-    pub fn blend_column(&mut self, column: u32, mut pixel_column: Vec<Rgb<u8>>) {
-        if column < self.img.height() {
-            (0..self.img.width()).for_each(|x| self.img[(x, column)] = pixel_column.pop().unwrap());
-        } else {
-            panic!(
-                "index out of bounds, height is {}, got {}.",
-                self.img.height(),
-                column
-            )
+    fn swap_lines(mut self, one_line: u32, other_line: u32) -> Self {
+        (0..self.img.height()).for_each(|i| {
+            let pixel = self.img[(one_line, i)];
+            self.img[(one_line, i)] = self.img[(other_line, i)];
+            self.img[(other_line, i)] = pixel;
+        });
+        self
+    }
+
+    fn swap_columns(mut self, one_column: u32, other_column: u32) -> Self {
+        (0..self.img.height()).for_each(|i| {
+            let pixel = self.img[(i, one_column)];
+            self.img[(i, one_column)] = self.img[(i, other_column)];
+            self.img[(i, other_column)] = pixel;
+        });
+        self
+    }
+
+    pub fn blend(mut self, rgb_filter: RgbFilter) -> Self {
+        match &self.selection {
+            PixelSelection::All => apply_all(&mut self.img, rgb_filter),
+            PixelSelection::Line(line) => apply_line(&mut self.img, *line, rgb_filter),
+            PixelSelection::Column(column) => apply_column(&mut self.img, *column, rgb_filter),
+            PixelSelection::LinesRange(lines) => {
+                apply_lines(&mut self.img, lines.to_owned(), rgb_filter)
+            }
+            PixelSelection::ColumnsRange(columns) => {
+                apply_columns(&mut self.img, columns.to_owned(), rgb_filter)
+            }
+            PixelSelection::Function(function) => {
+                apply_function(&mut self.img, *function, rgb_filter)
+            }
+            PixelSelection::Pair(one_segment, other_segment, pair_selection) => apply_pair(
+                &mut self.img,
+                *one_segment,
+                *other_segment,
+                *pair_selection,
+                rgb_filter,
+            ),
         }
-    }
-
-    pub fn blend_columns_interval(
-        &mut self,
-        first_column: u32,
-        last_column: u32,
-        columns: Vec<Rgb<u8>>,
-    ) {
-        let mut pieces = columns
-            .chunks(self.img.width() as usize)
-            .rev()
-            .collect::<Vec<_>>();
-        (first_column..last_column)
-            .for_each(|column| self.blend_column(column, pieces.pop().unwrap().to_vec()));
-    }
-
-    pub fn blend_lines_interval(&mut self, first_line: u32, last_line: u32, lines: Vec<Rgb<u8>>) {
-        let mut pieces = lines
-            .chunks(self.img.height() as usize)
-            .rev()
-            .collect::<Vec<_>>();
-        (first_line..last_line)
-            .for_each(|line| self.blend_line(line, pieces.pop().unwrap().to_vec()));
-    }
-
-    pub fn swap_lines(&mut self, line1: u32, line2: u32) -> Result<()> {
-        let line_1 = self.get_line(line1)?;
-        let line_2 = self.get_line(line2)?;
-        self.blend_line(line1, line_2);
-        self.blend_line(line2, line_1);
-
-        Ok(())
-    }
-
-    pub fn swap_columns(&mut self, column1: u32, column2: u32) -> Result<()> {
-        let column_1 = self.get_column(column1)?;
-        let column_2 = self.get_column(column2)?;
-        self.blend_column(column1, column_2);
-        self.blend_column(column2, column_1);
-
-        Ok(())
+        self
     }
 
     pub fn mess_everything(&mut self) {
-        (0..self.img.width())
-            .filter(|i| *i % 4 == 0)
-            .zip((0..self.img.width()).filter(|i| *i % 4 == 3))
-            .into_iter()
-            .for_each(|(odd, even)| self.swap_columns(odd, even).expect("oh lascou"));
-        let a = self
-            .get_lines_top_down(self.img.height())
-            .into_iter()
-            .rev()
-            .collect();
-        let b = self.blend_segment(a, RgbFilter::RgbOrMask(Rgb([40, 10, 200])));
-        let c = self.blend_segment(b, RgbFilter::RgbAndMask(Rgb([0, 200, 250])));
-        self.blend_lines_interval(0, self.img.width(), c);
+        todo!("sequencia de funcoes")
     }
 
     pub fn save_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {

@@ -2,7 +2,6 @@ use image::error::ImageError;
 
 #[derive(Debug)]
 pub enum Error {
-    IndexOutOfBounds,
     ImageError(ImageError),
 }
 
