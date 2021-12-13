@@ -9,9 +9,9 @@ pub fn main() -> crate::error::Result<()> {
         .expect("Erro ao abrir imagem")
         .to_rgb8();
     let tempo = Instant::now();
-    let mut my_image = MyRgbImage::new(neko_image);
-    my_image.mess_everything();
-    my_image.save_image("./new_neko.jpg")?;
+    MyRgbImage::new(neko_image)
+        .mess_everything()
+        .save_image("./new_neko.jpg")?;
     println!("saca só essa execução: {:?}", tempo.elapsed());
 
     Ok(())

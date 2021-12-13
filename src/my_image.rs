@@ -1,6 +1,7 @@
 use crate::error::Result;
 use image::{Rgb, RgbImage};
 use std::{ops::Range, path::Path};
+
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub enum PairSelection {
@@ -73,11 +74,11 @@ fn apply_pair(
     rgb_filter: RgbFilter,
 ) {
     match pair_selection {
-        PairSelection::Columns => (0..image.height()).for_each(|i| {
+        PairSelection::Lines => (0..image.width()).for_each(|i| {
             image[(i, one_segment)] = apply_filter(rgb_filter, image[(i, one_segment)]);
             image[(i, other_segment)] = apply_filter(rgb_filter, image[(i, other_segment)]);
         }),
-        PairSelection::Lines => (0..image.width()).for_each(|i| {
+        PairSelection::Columns => (0..image.height()).for_each(|i| {
             image[(one_segment, i)] = apply_filter(rgb_filter, image[(one_segment, i)]);
             image[(other_segment, i)] = apply_filter(rgb_filter, image[(other_segment, i)]);
         }),
@@ -141,19 +142,19 @@ impl MyRgbImage {
     }
 
     fn swap_lines(mut self, one_line: u32, other_line: u32) -> Self {
-        (0..self.img.height()).for_each(|i| {
-            let pixel = self.img[(one_line, i)];
-            self.img[(one_line, i)] = self.img[(other_line, i)];
-            self.img[(other_line, i)] = pixel;
+        (0..self.img.width()).for_each(|i| {
+            let pixel = self.img[(i, one_line)];
+            self.img[(i, one_line)] = self.img[(i, other_line)];
+            self.img[(i, other_line)] = pixel;
         });
         self
     }
 
     fn swap_columns(mut self, one_column: u32, other_column: u32) -> Self {
         (0..self.img.height()).for_each(|i| {
-            let pixel = self.img[(i, one_column)];
-            self.img[(i, one_column)] = self.img[(i, other_column)];
-            self.img[(i, other_column)] = pixel;
+            let pixel = self.img[(one_column, i)];
+            self.img[(one_column, i)] = self.img[(other_column, i)];
+            self.img[(other_column, i)] = pixel;
         });
         self
     }
@@ -183,8 +184,27 @@ impl MyRgbImage {
         self
     }
 
-    pub fn mess_everything(&mut self) {
-        todo!("sequencia de funcoes")
+    pub fn mess_everything(mut self) -> MyRgbImage {
+        let (height, width) = (self.img.height(), self.img.width());
+        self = self
+            .for_lines(0..height / 4)
+            .blend(RgbFilter::Magenta)
+            .blend(RgbFilter::RgbXorMask(Rgb([0, 20, 50])))
+            .for_columns(0..width / 4)
+            .blend(RgbFilter::Cyan)
+            .for_columns(0..width / 2)
+            .blend(RgbFilter::RgbNot)
+            .blend(RgbFilter::RgbShlOnce);
+        let line_pairs = (0..height)
+            .filter(|i| i % 4 == 0)
+            .zip((0..height).filter(|i| i % 4 == 3));
+        for (i, j) in line_pairs {
+            self = self
+                .for_pair(i, j, PairSelection::Lines)
+                .blend(RgbFilter::SorteColors)
+                .swap_lines(i, j)
+        }
+        self
     }
 
     pub fn save_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {
