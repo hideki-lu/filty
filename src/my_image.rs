@@ -2,8 +2,8 @@ use crate::error::Result;
 use image::{Rgb, RgbImage};
 use std::{ops::Range, path::Path};
 
-#[allow(dead_code)]
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 pub enum PairSelection {
     Lines,
     Columns,
@@ -25,29 +25,31 @@ pub struct MyRgbImage {
 fn apply_all(image: &mut RgbImage, rgb_filter: RgbFilter) {
     image
         .pixels_mut()
-        .for_each(|pixel| *pixel = apply_filter(rgb_filter, *pixel));
+        .for_each(|pixel| *pixel = RgbFilter::apply_filter(rgb_filter, *pixel));
 }
 
 fn apply_line(image: &mut RgbImage, line: u32, rgb_filter: RgbFilter) {
-    (0..image.width()).for_each(|i| image[(i, line)] = apply_filter(rgb_filter, image[(i, line)]))
+    (0..image.width())
+        .for_each(|i| image[(i, line)] = RgbFilter::apply_filter(rgb_filter, image[(i, line)]))
 }
 
 fn apply_column(image: &mut RgbImage, column: u32, rgb_filter: RgbFilter) {
     (0..image.height())
-        .for_each(|i| image[(column, i)] = apply_filter(rgb_filter, image[(column, i)]))
+        .for_each(|i| image[(column, i)] = RgbFilter::apply_filter(rgb_filter, image[(column, i)]))
 }
 
 fn apply_columns(image: &mut RgbImage, columns: Range<u32>, rgb_filter: RgbFilter) {
     columns.for_each(|column| {
-        (0..image.height())
-            .for_each(|i| image[(column, i)] = apply_filter(rgb_filter, image[(column, i)]))
+        (0..image.height()).for_each(|i| {
+            image[(column, i)] = RgbFilter::apply_filter(rgb_filter, image[(column, i)])
+        })
     })
 }
 
 fn apply_lines(image: &mut RgbImage, lines: Range<u32>, rgb_filter: RgbFilter) {
     lines.for_each(|line| {
         (0..image.width())
-            .for_each(|i| image[(i, line)] = apply_filter(rgb_filter, image[(i, line)]))
+            .for_each(|i| image[(i, line)] = RgbFilter::apply_filter(rgb_filter, image[(i, line)]))
     })
 }
 
@@ -63,7 +65,7 @@ fn apply_function(
             let (new_x, new_y) = function(pixel.0, pixel.1);
             new_x < width && new_y < height
         })
-        .for_each(|i| *i.2 = apply_filter(rgb_filter, *i.2));
+        .for_each(|i| *i.2 = RgbFilter::apply_filter(rgb_filter, *i.2));
 }
 
 fn apply_pair(
@@ -75,12 +77,14 @@ fn apply_pair(
 ) {
     match pair_selection {
         PairSelection::Lines => (0..image.width()).for_each(|i| {
-            image[(i, one_segment)] = apply_filter(rgb_filter, image[(i, one_segment)]);
-            image[(i, other_segment)] = apply_filter(rgb_filter, image[(i, other_segment)]);
+            image[(i, one_segment)] = RgbFilter::apply_filter(rgb_filter, image[(i, one_segment)]);
+            image[(i, other_segment)] =
+                RgbFilter::apply_filter(rgb_filter, image[(i, other_segment)]);
         }),
         PairSelection::Columns => (0..image.height()).for_each(|i| {
-            image[(one_segment, i)] = apply_filter(rgb_filter, image[(one_segment, i)]);
-            image[(other_segment, i)] = apply_filter(rgb_filter, image[(other_segment, i)]);
+            image[(one_segment, i)] = RgbFilter::apply_filter(rgb_filter, image[(one_segment, i)]);
+            image[(other_segment, i)] =
+                RgbFilter::apply_filter(rgb_filter, image[(other_segment, i)]);
         }),
     }
 }
@@ -92,6 +96,11 @@ impl MyRgbImage {
             selection: PixelSelection::All,
             img: a_image,
         }
+    }
+
+    pub fn for_all(mut self) -> Self {
+        self.selection = PixelSelection::All;
+        self
     }
 
     pub fn for_line(mut self, line: u32) -> Self {
@@ -194,17 +203,18 @@ impl MyRgbImage {
             .blend(RgbFilter::Cyan)
             .for_columns(0..width / 2)
             .blend(RgbFilter::RgbNot)
-            .blend(RgbFilter::RgbShlOnce);
-        let line_pairs = (0..height)
-            .filter(|i| i % 4 == 0)
-            .zip((0..height).filter(|i| i % 4 == 3));
-        for (i, j) in line_pairs {
-            self = self
-                .for_pair(i, j, PairSelection::Lines)
-                .blend(RgbFilter::SorteColors)
-                .swap_lines(i, j)
-        }
-        self
+            .blend(RgbFilter::RgbShlOnce)
+            .for_function(|x, y| (x, y + x * 3 / 7))
+            .blend(RgbFilter::RgbNot);
+        (0..height)
+            .filter(|i| i % 3 == 0)
+            .zip((0..height).filter(|i| i % 3 == 2))
+            .fold(self, |my_img, (i, j)| {
+                my_img
+                    .for_pair(i, j, PairSelection::Lines)
+                    .blend(RgbFilter::SorteColors)
+                    .swap_lines(i, j)
+            })
     }
 
     pub fn save_image<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -236,32 +246,31 @@ pub enum RgbFilter {
     RgbXorMask(Rgb<u8>),
 }
 
-#[allow(dead_code)]
-pub fn apply_filter(filter: RgbFilter, pixel: Rgb<u8>) -> Rgb<u8> {
-    match filter {
-        RgbFilter::Red => RgbFilter::red(pixel),
-        RgbFilter::Green => RgbFilter::green(pixel),
-        RgbFilter::Blue => RgbFilter::blue(pixel),
-        RgbFilter::Magenta => RgbFilter::magenta(pixel),
-        RgbFilter::Cyan => RgbFilter::cyan(pixel),
-        RgbFilter::Yellow => RgbFilter::yellow(pixel),
-        RgbFilter::SorteColors => RgbFilter::sorted_colors(pixel),
-        RgbFilter::SortedColorsRev => RgbFilter::sorted_colors_rev(pixel),
-        RgbFilter::SwapRgbColorsI => RgbFilter::swap_rgb_colors_i(pixel),
-        RgbFilter::SwapRgbColorsII => RgbFilter::swap_rgb_colors_ii(pixel),
-        RgbFilter::SwapRgbColorsIII => RgbFilter::swap_rgb_colors_iii(pixel),
-        RgbFilter::RgbNot => RgbFilter::rgb_not(pixel),
-        RgbFilter::RgbShlOnce => RgbFilter::rgb_shl_once(pixel),
-        RgbFilter::RgbShrOnce => RgbFilter::rgb_shr_once(pixel),
-        RgbFilter::RgbShlNth(times) => RgbFilter::rgb_shl_nth(pixel, times),
-        RgbFilter::RgbShrNth(times) => RgbFilter::rgb_shr_nth(pixel, times),
-        RgbFilter::RgbAndMask(mask) => RgbFilter::rgb_and_mask(pixel, mask),
-        RgbFilter::RgbOrMask(mask) => RgbFilter::rgb_or_mask(pixel, mask),
-        RgbFilter::RgbXorMask(mask) => RgbFilter::rgb_xor_mask(pixel, mask),
-    }
-}
-
 impl RgbFilter {
+    pub fn apply_filter(self, pixel: Rgb<u8>) -> Rgb<u8> {
+        match self {
+            RgbFilter::Red => RgbFilter::red(pixel),
+            RgbFilter::Green => RgbFilter::green(pixel),
+            RgbFilter::Blue => RgbFilter::blue(pixel),
+            RgbFilter::Magenta => RgbFilter::magenta(pixel),
+            RgbFilter::Cyan => RgbFilter::cyan(pixel),
+            RgbFilter::Yellow => RgbFilter::yellow(pixel),
+            RgbFilter::SorteColors => RgbFilter::sorted_colors(pixel),
+            RgbFilter::SortedColorsRev => RgbFilter::sorted_colors_rev(pixel),
+            RgbFilter::SwapRgbColorsI => RgbFilter::swap_rgb_colors_i(pixel),
+            RgbFilter::SwapRgbColorsII => RgbFilter::swap_rgb_colors_ii(pixel),
+            RgbFilter::SwapRgbColorsIII => RgbFilter::swap_rgb_colors_iii(pixel),
+            RgbFilter::RgbNot => RgbFilter::rgb_not(pixel),
+            RgbFilter::RgbShlOnce => RgbFilter::rgb_shl_once(pixel),
+            RgbFilter::RgbShrOnce => RgbFilter::rgb_shr_once(pixel),
+            RgbFilter::RgbShlNth(times) => RgbFilter::rgb_shl_nth(pixel, times),
+            RgbFilter::RgbShrNth(times) => RgbFilter::rgb_shr_nth(pixel, times),
+            RgbFilter::RgbAndMask(mask) => RgbFilter::rgb_and_mask(pixel, mask),
+            RgbFilter::RgbOrMask(mask) => RgbFilter::rgb_or_mask(pixel, mask),
+            RgbFilter::RgbXorMask(mask) => RgbFilter::rgb_xor_mask(pixel, mask),
+        }
+    }
+
     fn blue(rgb: Rgb<u8>) -> Rgb<u8> {
         Rgb([rgb[0], rgb[1], 255])
     }
