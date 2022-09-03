@@ -1,10 +1,9 @@
-mod error;
-mod my_image;
+extern crate filty;
 
-use my_image::MyRgbImage;
+use filty::my_image::MyRgbImage;
 use std::time::Instant;
 
-pub fn main() -> crate::error::Result<()> {
+pub fn main() -> filty::error::Result<()> {
     let neko_image = image::open("./neko.jpg")
         .expect("Erro ao abrir imagem")
         .to_rgb8();

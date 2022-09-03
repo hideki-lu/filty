@@ -1,5 +1,5 @@
-mod error;
-mod my_image;
+pub mod error;
+pub mod my_image;
 
 #[cfg(test)]
 #[allow(dead_code)]
