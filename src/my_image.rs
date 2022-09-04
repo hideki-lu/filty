@@ -15,17 +15,17 @@ impl Point {
 }
 
 #[derive(Copy, Clone)]
-pub struct Triangule {
+pub struct Triangle {
     p1: Point,
     p2: Point,
     p3: Point
 }
 
-impl Triangule {
+impl Triangle {
     fn is_inside(self, x: i32, y: i32) -> bool {
-        let d1 = Triangule::line_side(Point::new(x, y), self.p1, self.p2);
-        let d2 = Triangule::line_side(Point::new(x, y), self.p2, self.p3);
-        let d3 = Triangule::line_side(Point::new(x, y), self.p3, self.p1);
+        let d1 = Triangle::line_side(Point::new(x, y), self.p1, self.p2);
+        let d2 = Triangle::line_side(Point::new(x, y), self.p2, self.p3);
+        let d3 = Triangle::line_side(Point::new(x, y), self.p3, self.p1);
 
         let has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
         let has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
@@ -52,7 +52,7 @@ enum PixelSelection {
     ColumnsRange(Range<u32>),
     Function(fn(u32, u32) -> (u32, u32)),
     Pair(u32, u32, PairSelection),
-    InsideTriangle(Triangule),
+    InsideTriangle(Triangle),
 }
 pub struct MyRgbImage {
     selection: PixelSelection,
@@ -128,7 +128,7 @@ fn apply_pair(
 
 fn apply_inside_triangle(
     image: &mut RgbImage,
-    triangle: Triangule,
+    triangle: Triangle,
     rgb_filter: RgbFilter,
 ) {
     image
@@ -178,7 +178,7 @@ impl MyRgbImage {
         self
     }
 
-    pub fn for_inside_triangle(mut self, tri: Triangule) -> Self {
+    pub fn for_inside_triangle(mut self, tri: Triangle) -> Self {
         self.selection = PixelSelection::InsideTriangle(tri);
         self
     }
@@ -249,8 +249,8 @@ impl MyRgbImage {
         self
     }
 
-    pub fn draw_triangule(self, p1: Point, p2: Point, p3: Point, filter: RgbFilter) -> MyRgbImage {
-        let tri = Triangule { p1, p2, p3 };
+    pub fn draw_triangle(self, p1: Point, p2: Point, p3: Point, filter: RgbFilter) -> MyRgbImage {
+        let tri = Triangle { p1, p2, p3 };
         
         self
             .for_inside_triangle(tri)

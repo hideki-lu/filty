@@ -12,7 +12,7 @@ pub fn main() -> filty::error::Result<()> {
     MyRgbImage::new(neko_image)
         .for_all()
         .blend(RgbFilter::Solid(Rgb([0, 0, 0])))
-        .draw_triangule(
+        .draw_triangle(
             Point::new(101, 192),
             Point::new(154, 183),
             Point::new(221 , 253),
