@@ -52,7 +52,7 @@ enum PixelSelection {
     ColumnsRange(Range<u32>),
     Function(fn(u32, u32) -> (u32, u32)),
     Pair(u32, u32, PairSelection),
-    InsiteTriangle(Triangule),
+    InsideTriangle(Triangule),
 }
 pub struct MyRgbImage {
     selection: PixelSelection,
@@ -179,7 +179,7 @@ impl MyRgbImage {
     }
 
     pub fn for_inside_triangle(mut self, tri: Triangule) -> Self {
-        self.selection = PixelSelection::InsiteTriangle(tri);
+        self.selection = PixelSelection::InsideTriangle(tri);
         self
     }
 
@@ -244,17 +244,17 @@ impl MyRgbImage {
                 *pair_selection,
                 rgb_filter,
             ),
-            PixelSelection::InsiteTriangle(tri) => apply_inside_triangle(&mut self.img, *tri, rgb_filter),
+            PixelSelection::InsideTriangle(tri) => apply_inside_triangle(&mut self.img, *tri, rgb_filter),
         }
         self
     }
 
-    pub fn draw_triangule(self, p1: Point, p2: Point, p3: Point) -> MyRgbImage {
+    pub fn draw_triangule(self, p1: Point, p2: Point, p3: Point, filter: RgbFilter) -> MyRgbImage {
         let tri = Triangule { p1, p2, p3 };
         
         self
             .for_inside_triangle(tri)
-            .blend(RgbFilter::Solid(Rgb([255, 0, 255])))
+            .blend(filter)
     }
 
     pub fn mess_everything(mut self) -> MyRgbImage {
