@@ -4,7 +4,7 @@ use image::Rgb;
 use filty::my_image::MyRgbImage;
 use filty::my_image::RgbFilter;
 
-pub fn exemplo1() -> filty::error::Result<()> {
+pub fn exemplo2() -> filty::error::Result<()> {
     let neko_image = image::open("./neko.jpg")
         .expect("Erro ao abrir imagem")
         .to_rgb8();
