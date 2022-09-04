@@ -1,6 +1,6 @@
 extern crate filty;
 
-use filty::my_image::MyRgbImage;
+use filty::my_image::{MyRgbImage, Point};
 use std::time::Instant;
 
 pub fn main() -> filty::error::Result<()> {
@@ -9,8 +9,12 @@ pub fn main() -> filty::error::Result<()> {
         .to_rgb8();
     let tempo = Instant::now();
     MyRgbImage::new(neko_image)
-        .mess_everything()
-        .save_image("./new_neko.jpg")?;
+        .draw_triangule(
+            Point::new(101, 192),
+            Point::new(154, 183),
+            Point::new(221 , 253),
+        )
+        .save_image("./new_new_neko.jpg")?;
     println!("saca só essa execução: {:?}", tempo.elapsed());
 
     Ok(())
