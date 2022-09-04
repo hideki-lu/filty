@@ -2,6 +2,42 @@ use crate::error::Result;
 use image::{Rgb, RgbImage};
 use std::{ops::Range, path::Path};
 
+#[derive(Copy, Clone)]
+pub struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Point {
+    pub fn new(x: i32, y: i32) -> Point {
+        Point{ x, y }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct Triangle {
+    p1: Point,
+    p2: Point,
+    p3: Point
+}
+
+impl Triangle {
+    fn is_inside(self, x: i32, y: i32) -> bool {
+        let d1 = Triangle::line_side(Point::new(x, y), self.p1, self.p2);
+        let d2 = Triangle::line_side(Point::new(x, y), self.p2, self.p3);
+        let d3 = Triangle::line_side(Point::new(x, y), self.p3, self.p1);
+
+        let has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+        let has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+        !(has_neg && has_pos)
+    }
+
+    fn line_side(p1: Point, p2: Point, p3: Point) -> i32 {
+        (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
+    }
+}
+
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub enum PairSelection {
@@ -16,6 +52,7 @@ enum PixelSelection {
     ColumnsRange(Range<u32>),
     Function(fn(u32, u32) -> (u32, u32)),
     Pair(u32, u32, PairSelection),
+    InsideTriangle(Triangle),
 }
 pub struct MyRgbImage {
     selection: PixelSelection,
@@ -89,6 +126,19 @@ fn apply_pair(
     }
 }
 
+fn apply_inside_triangle(
+    image: &mut RgbImage,
+    triangle: Triangle,
+    rgb_filter: RgbFilter,
+) {
+    image
+        .enumerate_pixels_mut()
+        .filter(|(x, y, _)| {
+            triangle.is_inside(*x as i32, *y as i32)
+        })
+        .for_each(|(_, _, pixel)| *pixel = RgbFilter::apply_filter(rgb_filter, *pixel));
+}
+
 #[allow(dead_code)]
 impl MyRgbImage {
     pub fn new(a_image: RgbImage) -> Self {
@@ -125,6 +175,11 @@ impl MyRgbImage {
 
     pub fn for_function(mut self, function: fn(u32, u32) -> (u32, u32)) -> Self {
         self.selection = PixelSelection::Function(function);
+        self
+    }
+
+    pub fn for_inside_triangle(mut self, tri: Triangle) -> Self {
+        self.selection = PixelSelection::InsideTriangle(tri);
         self
     }
 
@@ -189,8 +244,17 @@ impl MyRgbImage {
                 *pair_selection,
                 rgb_filter,
             ),
+            PixelSelection::InsideTriangle(tri) => apply_inside_triangle(&mut self.img, *tri, rgb_filter),
         }
         self
+    }
+
+    pub fn draw_triangle(self, p1: Point, p2: Point, p3: Point, filter: RgbFilter) -> MyRgbImage {
+        let tri = Triangle { p1, p2, p3 };
+        
+        self
+            .for_inside_triangle(tri)
+            .blend(filter)
     }
 
     pub fn mess_everything(mut self) -> MyRgbImage {
@@ -244,6 +308,7 @@ pub enum RgbFilter {
     RgbAndMask(Rgb<u8>),
     RgbOrMask(Rgb<u8>),
     RgbXorMask(Rgb<u8>),
+    Solid(Rgb<u8>),
 }
 
 impl RgbFilter {
@@ -268,6 +333,7 @@ impl RgbFilter {
             RgbFilter::RgbAndMask(mask) => RgbFilter::rgb_and_mask(pixel, mask),
             RgbFilter::RgbOrMask(mask) => RgbFilter::rgb_or_mask(pixel, mask),
             RgbFilter::RgbXorMask(mask) => RgbFilter::rgb_xor_mask(pixel, mask),
+            RgbFilter::Solid(c) => RgbFilter::solid(c),
         }
     }
 
@@ -348,5 +414,9 @@ impl RgbFilter {
 
     fn rgb_shr_nth(rgb: Rgb<u8>, times: u8) -> Rgb<u8> {
         Rgb([rgb[0] >> times, rgb[1] >> times, rgb[2] >> times])
+    }
+
+    fn solid(c: Rgb<u8>) -> Rgb<u8> {
+        c
     }
 }
